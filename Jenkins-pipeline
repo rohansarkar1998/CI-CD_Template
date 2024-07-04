@@ -1,0 +1,64 @@
+pipeline{
+    
+    agent any
+    environment {
+        PATH = "/home/osboxes/apache-maven-3.8.5/bin:$PATH"
+    }
+    
+    stages {
+        
+        stage("git") {
+            steps {
+                git credentialsId: 'app-user', url: 'https://github.com/rohansarkar1998/JenkinsPrivetRepo.git'
+            }
+        }
+        
+        stage("Maven build") {
+            steps {
+                sh "mvn -f java-hello-world-webapp-master/pom.xml clean install"
+            }
+        }
+        
+        stage("Removing old .war File") {
+            steps {
+                sh "rm -rf /opt/Shopping_site/java-hello-world.war"
+            }
+            
+        }
+        
+        stage("Coping .war File") {
+            steps {
+                sh "cp -R java-hello-world-webapp-master/target/java-hello-world.war /opt/Shopping_site"
+            }
+            
+        }
+        
+        stage("Specify the environment") {
+            steps {
+                script{
+                    env.environment=input massage: 'Enter environment',
+                                parameters: [string(defaultValue: '',description:'',name:'environment')]
+                }
+            }
+            
+        }
+        
+        stage("Building Image") {
+            steps {
+                sh "sshpass -p 'osboxes.org' ansible-playbook /opt/Shopping_site/CreateDockerImage.yaml --ask-become-pass"
+            }
+            
+            
+        }
+        
+         stage("Deployment"){
+        steps{
+            sh "ansible-playbook -i /opt/Shopping_site/inventory.txt /opt/Shopping_site/Deploy.yaml --extra-vars env=${env.environment}"
+        }
+    }
+        
+        
+    }
+}
+        
+        
